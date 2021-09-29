@@ -26,10 +26,47 @@ const users = {
   }
 }
 
+const createUser = function(id, email, password) {
+  const user = {
+    id,
+    email,
+    password
+  };
+  return user;
+}
 
 // function to genereate a "unique" shortURL (6 characters)
 function generateRandomString() {
   return Math.random().toString(36).substr(2, 6);
+}
+
+// Check if the email or the passwords are empty strings.
+const checkIfEmptyString = function(email, password) {
+  if (email === "" || password === "") {
+    return true;
+  }
+  return false;
+}
+
+// HELPER FUNCTION #4
+// check to see if an email is already in the users database
+const findUserByEmail = function(email) {
+  for (const id in users) {
+    if (users[id].email === email) {
+      return id;
+    }
+  }
+  return false;
+}
+
+// check to see if the password given matches the password (same email) in the database
+const checkPassword = function(email, password) {
+  for (const id in users) {
+    if (users[id].email === email && users[id].password === password) {
+      return true;
+    }
+  }
+  return false;
 }
 
 app.get("/", (req, res) => {
@@ -48,7 +85,7 @@ app.get("/hello", (req,res) => {
 app.get("/urls", (req, res) => {
   const templateVars = { 
     urls: urlDatabase,
-    username: req.cookies["username"]
+    userObject: users[req.cookies["user_id"]]
    };
   res.render("urls_index", templateVars);
 });
@@ -56,7 +93,7 @@ app.get("/urls", (req, res) => {
 // route to present the form to the user
 app.get("/urls/new", (req, res) => {
   const templateVars = {
-    username: req.cookies["username"]
+    userObject: users[req.cookies["user_id"]]
   };
   res.render("urls_new", templateVars);
 });
@@ -73,7 +110,7 @@ app.get("/urls/:shortURL", (req, res) => {
   const templateVars = { 
     shortURL: req.params.shortURL, 
     longURL: urlDatabase[req.params.shortURL],
-    username: req.cookies["username"]
+    userObject: users[req.cookies["user_id"]]
    };
   res.render("urls_show", templateVars);
 });
@@ -100,36 +137,43 @@ app.post("/urls/:shortURL", (req, res) => {
 
 // route to handle a POST to /login and set cookies
 app.post("/login", (req, res) => {
-  res.cookie("username", req.body.username);
+  res.cookie("user_id", userInfo.id);
   res.redirect("/urls");
 });
 
 //(GET-REGISTER)User Registeration from
 app.get("/register", (req, res) => {
   const templateVars = {
-    username: req.cookies["username"]
+    userObject: users[req.cookies["user_id"]]
   };
   res.render("register_index", templateVars);
 });
 
 // (POST-REGISTER)
 app.post("/register", (req, res) => {
-  if (req.body.email === '') {
-    res.send("Error 404");
+  const id = generateRandomString();
+  const email = req.body.email;
+  const password = req.body.password;
+  // if email or password is empty, send an error message
+  if (checkIfEmptyString(email, password)) {
+    return res.status(400).send("Email or Password cannot be empty");
   }
-  const userInfo = {
-    id: generateRandomString(),
-    email: req.body.email,
-    password: req.body.password
-  };
-  users[userInfo.id] = userInfo;
-  res.cookie("user_id", userInfo.id);
-  res.redirect('/urls');
+  // if someone registers with existing email, send an error message
+  if (findUserByEmail(email)) {
+    return res.status(400).send("Email already exists");
+  }
+  // use the helper function create a user object
+  const user = createUser(id, email, password);
+  // add the new user object to the users database
+  users[id] = user;
+  // set user_id cookie contraining the user's newly generated ID
+  res.cookie("user_id", id);
+  res.redirect("/urls");
 });
 
 // route to handle a POST to /logout and clears the username cookie
 app.post("/logout", (req, res) => {
-  res.clearCookie("username");
+  res.cookie("user_id", userInfo.id);
   res.redirect("/urls");
 })
 
