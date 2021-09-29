@@ -90,6 +90,14 @@ app.post("/login", (req, res) => {
   res.redirect("/urls");
 });
 
+//(GET-REGISTER)User Registeration from
+app.get("/register", (req, res) => {
+  const templateVars = {
+    username: req.cookies["username"]
+  };
+  res.render("register_index", templateVars);
+});
+
 // route to handle a POST to /logout and clears the username cookie
 app.post("/logout", (req, res) => {
   res.clearCookie("username");
