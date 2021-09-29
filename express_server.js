@@ -13,6 +13,20 @@ const urlDatabase = {
   "9sm5xK": "http://www.google.com"
 };
 
+const users = { 
+  "userRandomID": {
+    id: "userRandomID", 
+    email: "user@example.com", 
+    password: "purple-monkey-dinosaur"
+  },
+ "user2RandomID": {
+    id: "user2RandomID", 
+    email: "user2@example.com", 
+    password: "dishwasher-funk"
+  }
+}
+
+
 // function to genereate a "unique" shortURL (6 characters)
 function generateRandomString() {
   return Math.random().toString(36).substr(2, 6);
@@ -96,6 +110,21 @@ app.get("/register", (req, res) => {
     username: req.cookies["username"]
   };
   res.render("register_index", templateVars);
+});
+
+// (POST-REGISTER)
+app.post("/register", (req, res) => {
+  if (req.body.email === '') {
+    res.send("Error 404");
+  }
+  const userInfo = {
+    id: generateRandomString(),
+    email: req.body.email,
+    password: req.body.password
+  };
+  users[userInfo.id] = userInfo;
+  res.cookie("user_id", userInfo.id);
+  res.redirect('/urls');
 });
 
 // route to handle a POST to /logout and clears the username cookie
