@@ -1,181 +1,176 @@
+const {generateRandomString, addUser, isEmailExist, userByEmail, urlsForUser} = require("./helpers.js");
 const express = require("express");
-const app = express(); // creating a server using express
+const app = express();
 const PORT = 8080; // default port 8080
-const bodyParser = require("body-parser"); // body-parser allows data (buffer) to be readable
-app.use(bodyParser.urlencoded({extended:true}));
-const cookieParser = require("cookie-parser");
-app.use(cookieParser());
+const bodyParser = require("body-parser");
+const cookieSession = require('cookie-session');
+const bcrypt = require('bcrypt');
+const methodOverride = require('method-override');
 
-app.set("view engine", "ejs"); // setting the view engine as EJS
+app.use(bodyParser.urlencoded({extended: true}));
+app.use(cookieSession({
+  name: 'session',
+  keys: ['key1']
+}));
+app.set("view engine", "ejs");
+app.use(methodOverride('_method'));
 
+// URLs database
 const urlDatabase = {
-  "b2xVn2": "http://www.lighthouselabs.ca",
-  "9sm5xK": "http://www.google.com"
+  "b2xVn2": {longURL: "http://www.lighthouselabs.ca", userID: "398re4", countVisits: 1, visitors: [], visits:{"oi567t": {id: "oi567t", date: "11/10/2020 20:18 GMT"}}},
+  "9sm5xK": {longURL: "http://www.google.com", userID: "4ur456", countVisits: 2, visitors: [], visits:{}}
 };
 
-const users = { 
-  "userRandomID": {
-    id: "userRandomID", 
-    email: "user@example.com", 
-    password: "purple-monkey-dinosaur"
+// users database
+const users = {
+  "398re4": {
+    id: "398re4",
+    email: "user@example.com",
+    password: bcrypt.hashSync("123", 10)
   },
- "user2RandomID": {
-    id: "user2RandomID", 
-    email: "user2@example.com", 
-    password: "dishwasher-funk"
+  "4ur456": {
+    id: "4ur456",
+    email: "user2@example.com",
+    password: bcrypt.hashSync("dishwasher-funk", 10)
   }
-}
+};
 
-const createUser = function(id, email, password) {
-  const user = {
-    id,
-    email,
-    password
-  };
-  return user;
-}
-
-// function to genereate a "unique" shortURL (6 characters)
-function generateRandomString() {
-  return Math.random().toString(36).substr(2, 6);
-}
-
-// Check if the email or the passwords are empty strings.
-const checkIfEmptyString = function(email, password) {
-  if (email === "" || password === "") {
-    return true;
-  }
-  return false;
-}
-
-// HELPER FUNCTION #4
-// check to see if an email is already in the users database
-const findUserByEmail = function(email) {
-  for (const id in users) {
-    if (users[id].email === email) {
-      return id;
-    }
-  }
-  return false;
-}
-
-// check to see if the password given matches the password (same email) in the database
-const checkPassword = function(email, password) {
-  for (const id in users) {
-    if (users[id].email === email && users[id].password === password) {
-      return true;
-    }
-  }
-  return false;
-}
 
 app.get("/", (req, res) => {
-  res.send("Hello!");
+  const templateVars = {user: users[req.session.userID]};
+  res.render("index", templateVars);
 });
-
 app.get("/urls.json", (req, res) => {
   res.json(urlDatabase);
 });
 
-app.get("/hello", (req,res) => {
-  res.send("<html><body>Hello <b>World</b></body></html>\n");
-});
-
-// route to display a table of the URL Database (long and short URLS)
+//showing all the urls
 app.get("/urls", (req, res) => {
-  const templateVars = { 
-    urls: urlDatabase,
-    userObject: users[req.cookies["user_id"]]
-   };
+  const templateVars = {user: users[req.session.userID], urls: urlDatabase };
   res.render("urls_index", templateVars);
 });
 
-// route to present the form to the user
+//show the page for creating new url
 app.get("/urls/new", (req, res) => {
-  const templateVars = {
-    userObject: users[req.cookies["user_id"]]
-  };
-  res.render("urls_new", templateVars);
+  if (!req.session.userID) {
+    res.redirect("/login");
+  } else {
+    const templateVars = { user: users[req.session.userID]};
+    res.render("urls_new",templateVars);
+  }
 });
 
-// route to receive the form submission
-app.post("/urls", (req, res) => {
-  const newShortUrl = generateRandomString(); // generate a new short URL
-  urlDatabase[newShortUrl] = req.body.longURL // add the key value pair to the URL Database
-  res.redirect(`/urls/${newShortUrl}`); // redirect to the new URL page
-});
-
-// route to display long URL along with short URL (+ link to create new URL)
+//show a specific url
 app.get("/urls/:shortURL", (req, res) => {
-  const templateVars = { 
-    shortURL: req.params.shortURL, 
-    longURL: urlDatabase[req.params.shortURL],
-    userObject: users[req.cookies["user_id"]]
-   };
+  const shortURL = req.params.shortURL;
+  const visitID = generateRandomString();
+  let today = new Date();
+  urlDatabase[shortURL]['countVisits'] ++;
+  if (!urlDatabase[shortURL]['visitors'].includes(req.session.userID)) {
+    urlDatabase[shortURL]['visitors'].push(req.session.userID);
+  }
+  urlDatabase[shortURL]['visits'][visitID] = {'id': visitID, 'date': today.getMonth() + "/" + today.getDate() + "/" + today.getFullYear() + "  " + today.getHours() + ":" + today.getMinutes() + " GMT"};
+  const templateVars = { user: users[req.session.userID], shortURL: shortURL, longURL: urlDatabase[shortURL]['longURL'], userID:  urlDatabase[shortURL]['userID'], countVisits: urlDatabase[shortURL]['countVisits'], visitors: urlDatabase[shortURL]['visitors'].length, visits: urlDatabase[shortURL]['visits']};
   res.render("urls_show", templateVars);
 });
 
-// route to handle shortURL requests, clicking on the shortURL will lead to the longURL
-app.get("/u/:shortURL", (req, res) => {
-  const longURL = urlDatabase[req.params.shortURL];
-  res.redirect(longURL);
-});
-
-// route to remove a URL and redirect to the /urls page
-app.post("/urls/:shortURL/delete", (req, res) => {
-  const shortURL = req.params.shortURL;
-  delete urlDatabase[shortURL]; // delete the shortURL property in the database
-  res.redirect("/urls");
-});
-
-// route to update a URL and redirect to the /urls page
-app.post("/urls/:shortURL", (req, res) => {
-  const shortURL = req.params.shortURL;
-  urlDatabase[shortURL] = req.body.longURL; // update the longURL of the shortURL in the database
-  res.redirect("/urls");
-});
-
-// route to handle a POST to /login and set cookies
-app.post("/login", (req, res) => {
-  res.cookie("user_id", userInfo.id);
-  res.redirect("/urls");
-});
-
-//(GET-REGISTER)User Registeration from
+//show the registration form
 app.get("/register", (req, res) => {
-  const templateVars = {
-    userObject: users[req.cookies["user_id"]]
-  };
-  res.render("register_index", templateVars);
+  const templateVars = { user: users[req.session.userID]};
+  res.render("urls_register", templateVars);
 });
 
-// (POST-REGISTER)
+//show the login page
+app.get("/login", (req, res) => {
+  const templateVars = { user: users[req.session.userID]};
+  res.render("urls_login", templateVars);
+});
+
+//create new url
+app.post("/urls", (req, res) => {
+  let shortURL = generateRandomString();
+  let longURL = req.body.longURL;
+  const visitID = generateRandomString();
+  const today = new Date();
+  urlDatabase[shortURL] = {'longURL': longURL, 'userID': req.session.userID, 'countVisits': 1, visitors: [], visits: {}};
+  urlDatabase[shortURL]['visitors'].push(req.session.userID);
+  urlDatabase[shortURL]['visits'][visitID] = {'id': visitID, 'date': today.getMonth() + "/" + today.getDate() + "/" + today.getFullYear() + "  " + today.getHours() + ":" + today.getMinutes() + " GMT"};
+  res.redirect('/urls');
+});
+
+//access to a url from its key
+app.get("/u/:shortURL", (req, res) => {
+  const shortURL = req.params.shortURL;
+  if (!Object.prototype.hasOwnProperty.call(urlDatabase,shortURL)) {
+    res.status(404);
+    res.send("404 NOT FOUND");
+  } else {
+    const longURL = urlDatabase[shortURL]['longURL'];
+    res.redirect(longURL);
+  }
+});
+
+//delete a url
+app.post("/urls/:shortURL/delete", (req, res) => {
+  const id = req.session.user_id;
+  const filteredDatabase = urlsForUser(id, urlDatabase);
+  const shortURL = req.params.shortURL;
+  if (!filteredDatabase[shortURL]) {
+    return res.status(400).send("You are not allowed to delete this.");
+  }
+  delete urlDatabase[shortURL];
+  res.redirect("/urls");
+});
+
+//update a url
+app.put("/urls/:shortURL", (req, res) => {
+  const id = req.session.userID;
+  const shortURL = req.params.shortURL;
+  const URLs = urlsForUser(urlDatabase, id);
+  if (URLs.includes(shortURL)) {
+    urlDatabase[shortURL] = {longURL: req.body.longURL, userID: id};
+    res.redirect('/urls/');
+  } else {
+    res.status(403);
+    res.send('<h2>You are not allowed to update this URL<h2>');
+  }
+});
+
+//login by an email
+app.post("/login", (req, res) => {
+  const password = req.body.password;
+
+  let user = userByEmail(users, req.body.email);
+  if (!isEmailExist(users,req.body.email) || !bcrypt.compare(user.password, password)) {
+    res.status(403);
+    res.send("<h2> Email Doesn't exist or wrong password</h2>");
+  } else if (user.email === req.body.email && bcrypt.compare(user.password, password)) {
+    req.session.userID = user.id;
+    res.redirect('/urls');
+  }
+});
+
+//logout by clearing the cookies
+app.post("/logout", (req, res) => {
+  req.session = null;
+  res.redirect('/urls');
+});
+
+//register a new user
 app.post("/register", (req, res) => {
   const id = generateRandomString();
   const email = req.body.email;
-  const password = req.body.password;
-  // if email or password is empty, send an error message
-  if (checkIfEmptyString(email, password)) {
-    return res.status(400).send("Email or Password cannot be empty");
-  }
-  // if someone registers with existing email, send an error message
-  if (findUserByEmail(email)) {
-    return res.status(400).send("Email already exists");
-  }
-  // use the helper function create a user object
-  const user = createUser(id, email, password);
-  // add the new user object to the users database
-  users[id] = user;
-  // set user_id cookie contraining the user's newly generated ID
-  res.cookie("user_id", id);
-  res.redirect("/urls");
-});
+  const password = bcrypt.hashSync(req.body.password, 10);
 
-// route to handle a POST to /logout and clears the username cookie
-app.post("/logout", (req, res) => {
-  res.cookie("user_id", userInfo.id);
-  res.redirect("/urls");
-})
+  if (email === "" || password === "" || isEmailExist(users, email)) {
+    res.status(404);
+    res.send("404 NOT FOUND");
+  } else {
+    addUser(users, id, email, password);
+    req.session.userID = id;
+    res.redirect('/urls');
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`Example app listening on port ${PORT}!`);
