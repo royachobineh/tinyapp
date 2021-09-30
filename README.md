@@ -35,14 +35,10 @@ TinyApp is a full stack web application built with Node and Express that allows 
 
 - Install all dependencies (using the `npm install` command).
 - Run the development web server using the `npm run start` command.
-- Once the server has started go to `localhost:3000/urls` in your browser
+- Once the server has started go to `localhost:8080/urls` in your browser
 - You will be required to register for an account (this account will only exist temporarily while the server is running)
 - Once registered you will automatically be logged in and can create new shortened urls!
 
-## Notes
-- You can access shortened URLs by clicking on the hyperlink in the urls_show page or by going to `localhost:3000/u/shortenedURL` where `shortenedURL` is the specific tinyURL you are trying to access
-- Please note that you can only modify url's that belong to your account, you will automatically be redirected when trying to access and or modify a url that does not belong to you. 
-- You will still be able to access shortened urls that do not belong to you by going to `localhost:3000/u/shortenedURL`
 
 ## Contact
-- In the situation that you are facing problems starting up the application please contact me at armeen.hadizadeh@gmail.com
+- In the situation that you are facing problems starting up the application please contact me at roya.chbn@gmail.com
